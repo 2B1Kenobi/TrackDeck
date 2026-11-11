@@ -2,7 +2,7 @@
 
 > **Multitrack Session Ingestion & Lossless Stem Bus Middleware for StemDeck**
 
-TrackDeck bridges discrete multitrack live recordings (e.g. Behringer XR-18, SoundCraft, multi-channel USB stageboxes) directly into **StemDeck** without running AI separation.
+TrackDeck bridges discrete multitrack live recordings (e.g. Behringer XR-18, SoundCraft, Altered Audio Editor, Adobe Audition) directly into **StemDeck** without running AI separation.
 
 By summing discrete microphone and DI lines directly into StemDeck's 6 canonical stem targets (`drums`, `bass`, `guitar`, `piano`, `vocals`, `other`), TrackDeck:
 1. **Eliminates AI Artifacts**: No cymbal flanging, phase smearing, or spectral vocal bleed caused by neural separation models.
@@ -11,68 +11,55 @@ By summing discrete microphone and DI lines directly into StemDeck's 6 canonical
 
 ---
 
-## Installation & Setup
+## Supported Session Formats & DAWs
 
-TrackDeck runs on Linux and is designed to execute with StemDeck's Python runtime or any Python 3.9+ environment.
-
-```bash
-cd /home/deck/Projects/TrackDeck
-pip install -e .
-```
-
-### Install Shell Completions (Fish)
-TrackDeck includes dynamic, context-aware Fish shell completions:
-
-```bash
-trackdeck completion --install
-```
-This registers tab autocompletions for all subcommands, markers, flags, and saved routing profiles.
+- **Altered Audio Editor (`.altaudio`)**: Native JSON multitrack session format with first-class cue & range markers, clip volume gain envelopes, and track routing.
+- **Adobe Audition (`.sesx`)**: XML multitrack sessions with XMP timeline markers.
+- **Raw Multitrack Folders**: Directories containing discrete, numbered/named `.wav` files (e.g. direct USB multitrack capture from mixers).
 
 ---
 
-## Full-Session Workflow with Adobe Audition Markers
+## Full-Session Workflow with Markers
 
-Live band sessions and Sunday services are typically recorded as continuous 30-to-90-minute multitrack sessions containing multiple songs. TrackDeck uses Adobe Audition **Range Markers** to slice songs without touching audio editors manually.
+Live band sessions and Sunday services are typically recorded as continuous 30-to-90-minute multitrack sessions containing multiple songs. TrackDeck uses DAW **Range Markers** to slice songs automatically.
 
-### 1. Placing Markers in Adobe Audition
-1. Open your multitrack session (`.sesx`) in Adobe Audition.
-2. Open the **Markers Panel** (`Alt + 8` or `Window > Markers`).
-3. Make a time selection over the span of a song.
-4. Press **`M`** to create a Range Marker.
-5. In the Markers panel, rename the marker to the song's title (e.g. `May Galak`, `Pasayahin Ang Langit`).
-6. Save the session (`Ctrl + S`).
+### 1. Placing Markers
+- **In Altered Audio Editor**: Set cue/range markers on the timeline named with the song titles (e.g. `JIA Makati Welcome Song`, `Great is the Lord`).
+- **In Adobe Audition**: Open Markers panel (`Alt + 8`), make a time selection over each song, press **`M`** to create Range Markers, and name them after the song titles.
 
 ### 2. Inspecting Detected Markers via CLI
 ```bash
-trackdeck markers "2026-09-06 SUNDAY SERVICE.sesx"
+trackdeck markers "2026-09-06 SUNDAY SERVICE.altaudio"
 ```
 Output:
 ```text
-=== Detected Songs / Markers in: 2026-09-06 SUNDAY SERVICE.sesx ===
+==============================================================================
+  Detected Songs / Markers in: 2026-09-06 SUNDAY SERVICE.altaudio
+==============================================================================
 Sample Rate: 48,000 Hz | Session Duration: 149m 31s (8971.3s)
 ------------------------------------------------------------------------------
 #    | Song / Marker Title          | Start Time | Duration   | Type
 ------------------------------------------------------------------------------
-1    | May Galak                    | 00:03:12   | 04:33      | Range
-2    | Pasayahin Ang Langit         | 00:08:10   | 04:25      | Range
-3    | Mahal na Mahal Kita          | 00:13:00   | 05:22      | Range
+1    | JIA Makati Welcome Song      | 00:05:45   | 02:45      | Range
+2    | Great is the Lord            | 00:08:49   | 05:31      | Range
+==============================================================================
 ```
 
 ### 3. Ingesting Songs into StemDeck
 
 #### Ingest a Specific Song by Marker Name
 ```bash
-trackdeck session "2026-09-06 SUNDAY SERVICE.sesx" --marker "May Galak"
+trackdeck session "2026-09-06 SUNDAY SERVICE.altaudio" --marker "Great is the Lord"
 ```
 
 #### Batch Ingest All Marked Songs in One Command
 ```bash
-trackdeck session "2026-09-06 SUNDAY SERVICE.sesx" --all-markers
+trackdeck session "2026-09-06 SUNDAY SERVICE.altaudio" --all-markers
 ```
 
 #### Manual Timestamp Slicing (If Markers Were Not Added)
 ```bash
-trackdeck session "2026-09-06 SUNDAY SERVICE.sesx" --start 03:12 --end 07:45 --title "May Galak"
+trackdeck session "2026-09-06 SUNDAY SERVICE.altaudio" --start 03:12 --end 07:45 --title "May Galak"
 ```
 
 ---

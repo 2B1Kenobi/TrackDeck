@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Union
 
+from track_deck.parsers.altaudio import AltAudioParser
 from track_deck.parsers.base import BaseSessionParser
 from track_deck.parsers.folder import FolderMultitrackParser
 from track_deck.parsers.sesx import AuditionSesxParser
@@ -18,11 +19,17 @@ def get_session_parser(path_str: Union[str, Path]) -> BaseSessionParser:
         suffix = p.suffix.lower()
         if suffix == ".sesx":
             return AuditionSesxParser(p)
+        elif suffix in (".altaudio", ".json"):
+            return AltAudioParser(p)
         else:
-            raise ValueError(f"Unsupported session file type: {suffix}. Supported: .sesx (Adobe Audition)")
+            raise ValueError(f"Unsupported session file type: {suffix}. Supported: .altaudio (Altered Audio Editor), .sesx (Adobe Audition)")
 
     if p.is_dir():
-        # Check if an Audition .sesx exists inside this directory
+        # Check for Altered Audio (.altaudio)
+        altaudio_files = list(p.glob("*.altaudio"))
+        if altaudio_files:
+            return AltAudioParser(altaudio_files[0])
+        # Check for Audition (.sesx)
         sesx_files = list(p.glob("*.sesx"))
         if sesx_files:
             return AuditionSesxParser(sesx_files[0])

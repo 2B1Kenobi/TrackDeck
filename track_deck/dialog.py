@@ -8,42 +8,46 @@ STEM_TARGETS = ["drums", "bass", "guitar", "piano", "vocals", "other", "ignore"]
 
 
 def classify_track_heuristic(track_name: str) -> str:
-    """Classify track name to a StemDeck target stem using intelligent heuristics.
+    """Classify track name to a StemDeck target stem using standard audio mixing terminology.
     
-    Rules:
-    - DRUM / KICK / SNARE / TOM / HAT / OH -> drums
-    - BASS -> bass
-    - GUITAR / GTR / ACOUSTIC -> guitar
-    - KEY / PIANO / SYNTH / ORGAN -> piano
-    - MIC / VOX / VOCAL / LEAD / CHOIR -> vocals
-    - SHURE / BEH / SPEECH / PASTOR / TALK / ROOM -> other (speech/non-singers)
+    Standard Industry Conventions:
+    - VOCALS: VOX, VOCAL, MIC, LEAD, BGV, BACKING, HARMONY, CHOIR
+    - DRUMS: DRUM, KICK, SNARE, TOM, HAT, CYMBAL, OVERHEAD (OH), PERC
+    - BASS: BASS, BS
+    - GUITAR: GUITAR, GTR, ACOUSTIC, ELECTRIC (EG)
+    - PIANO: KEY, KEYS, PIANO, SYNTH, ORGAN, RHODES, KEYBOARD, PAD
+    - OTHER: ROOM, AMBIENT, AUDIENCE, TALK, SPEECH, CLICK, GUIDE, AUX, FX
+    
+    Setup-specific names (e.g. brand names, custom hardware labels) fall back
+    to 'other' unless explicitly specified via a routing profile (--profile).
     """
     tn = track_name.lower().strip()
 
-    # Explicit speech / non-singer wireless mics (SHURE, BEH1, BEH2, Pastor, Talk, Room)
-    if re.search(r"\b(shure|beh\s*\d*|speech|speaker|pastor|talk|room|aux|ambient)\b", tn):
+    # Common non-musical or utility channels
+    if re.search(r"\b(talk|speech|speaker|room|amb|ambient|audience|crowd|click|guide|aux|fx)\b", tn):
         return "other"
 
-    # Drums
-    if re.search(r"\b(drum|drums|kick|snare|tom|toms|hat|hihat|hi-hat|cymbal|cymbals|overhead|oh)\b", tn):
+    # Drums & Percussion
+    if re.search(r"\b(drum|drums|kick|bd|snare|sn|tom|toms|hat|hihat|hi-hat|cym|cymbal|cymbals|overhead|oh|perc|percussion)\b", tn):
         return "drums"
 
     # Bass
     if re.search(r"\b(bass|bs)\b", tn):
         return "bass"
 
-    # Guitar
-    if re.search(r"\b(guitar|guitars|gtr|ac|acoustic|eg|electric)\b", tn):
+    # Guitar (Acoustic / Electric)
+    if re.search(r"\b(guitar|guitars|gtr|acoustic|ac|electric|eg)\b", tn):
         return "guitar"
 
-    # Piano / Keys
-    if re.search(r"\b(key|keys|key1|key2|piano|synth|organ|rhodes|keyboard|keyboards)\b", tn):
+    # Piano / Keys / Synths / Organs
+    if re.search(r"\b(key|keys|key1|key2|piano|synth|organ|rhodes|keyboard|keyboards|pad)\b", tn):
         return "piano"
 
-    # Singing Vocals (MIC1-5, Vox, Vocals, Lead, Backing)
-    if re.search(r"\b(mic\s*\d*|vox|vocal|vocals|lead|backing|bv|harmony|singer|choir)\b", tn):
+    # Vocals (Mic, Vox, Vocal, Lead, Backing)
+    if re.search(r"\b(vox|vocal|vocals|mic\s*\d*|lead|backing|bgv|harmony|singer|choir)\b", tn):
         return "vocals"
 
+    # Default fallback for arbitrary or unclassified track names
     return "other"
 
 
