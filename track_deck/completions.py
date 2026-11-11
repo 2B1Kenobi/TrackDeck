@@ -63,6 +63,8 @@ for app in trackdeck track-deck
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'single' -d 'Ingest a single multitrack song'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'markers' -d 'List detected song markers in session'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'profiles' -d 'List or manage saved channel routing profiles'
+    complete -c $app -n '__fish_trackdeck_needs_command' -a 'patch-stemdeck' -d 'Patch StemDeck backend for live rescan'
+    complete -c $app -n '__fish_trackdeck_needs_command' -a 'rescan' -d 'Trigger StemDeck live library rescan via API'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'completion' -d 'Output or install Fish shell completion'
 
     # Global options

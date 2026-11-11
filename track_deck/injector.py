@@ -2,11 +2,41 @@
 
 import json
 import time
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from track_deck.analyzer import generate_stemdeck_artifacts
+
+
+def notify_stemdeck_rescan(port: int = 10000) -> bool:
+    """Notify running StemDeck backend to dynamically rescan its library."""
+    url = f"http://127.0.0.1:{port}/api/jobs/rescan"
+    req = urllib.request.Request(
+        url,
+        data=b"{}",
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            if resp.status == 200:
+                body = json.loads(resp.read().decode("utf-8"))
+                count = body.get("count", 0)
+                print(f"[+] Notified StemDeck: Live library rescan successful ({count} songs available).")
+                return True
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            print("[!] Notice: StemDeck backend is running, but /api/jobs/rescan endpoint was not found.")
+            print("    Run 'trackdeck patch-stemdeck' and restart StemDeck to enable zero-restart live reload.")
+        else:
+            print(f"[!] StemDeck backend returned HTTP {e.code} during rescan.")
+    except Exception:
+        print("[*] Note: StemDeck backend is not currently running.")
+        print("    Song injected to disk; it will appear automatically next time StemDeck opens.")
+    return False
 
 
 def get_default_stemdeck_jobs_dir() -> Path:
@@ -64,6 +94,7 @@ def inject_job_into_stemdeck(
             registry_data = {"version": 1, "jobs": []}
 
     job_entry = {
+        "status": "done",
         "stage_message": "Done",
         "id": jid,
         "auto_sections": True,
@@ -98,4 +129,8 @@ def inject_job_into_stemdeck(
 
     print(f"[+] Successfully injected job into StemDeck: {job_dir.name}")
     print(f"    Title: {title} | Key: {metadata['key']} | BPM: {metadata['bpm']} | Duration: {metadata['duration_sec']}s")
+
+    # Notify running StemDeck backend to rescan immediately
+    notify_stemdeck_rescan()
+
     return job_dir

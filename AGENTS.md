@@ -49,3 +49,10 @@ TrackDeck operates as a multitrack ingestion middleware for StemDeck. When synth
 
 ## 7. Node.js / NVM Policy
 - Strictly forbidden to invoke `nvm`, `node`, `npm`, or `npx` or install Node packages without explicit user authorization. All hooks and tools are pure Python and Bash.
+
+## 8. StemDeck Backend Rescan Contract
+- StemDeck holds an in-memory job dictionary `_jobs` populated only once at startup.
+- Injected job records in `registry.json` must strictly specify `"status": "done"`.
+- After writing files, TrackDeck calls `POST http://127.0.0.1:10000/api/jobs/rescan` (via `track_deck/injector.py:notify_stemdeck_rescan`).
+- StemDeck is patched using `trackdeck patch-stemdeck` (or `./install.sh`), which safely injects `@router.api_route("/rescan", methods=["GET", "POST"])` into `app/api/jobs.py` (both in `backend/app/api/jobs.py` and `site-packages/app/api/jobs.py`) with automatic `.bak` backups.
+- If StemDeck is offline, TrackDeck logs a friendly notice that the job is saved to disk and will load upon next app launch.

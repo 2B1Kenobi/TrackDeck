@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from track_deck.dialog import interactive_mapping_dialog
-from track_deck.injector import inject_job_into_stemdeck
+from track_deck.injector import inject_job_into_stemdeck, notify_stemdeck_rescan
 from track_deck.parsers import get_session_parser
 from track_deck.parsers.base import BaseSessionParser, MarkerInfo
 from track_deck.profiles import delete_profile, list_profiles, load_profile
+from track_deck.stemdeck_patcher import find_stemdeck_dir, patch_stemdeck, is_stemdeck_patched
 from track_deck.summer import sum_and_render_stems
 
 
@@ -300,6 +301,37 @@ def single_command(args) -> int:
     return 0 if ok else 1
 
 
+def patch_stemdeck_action(custom_dir: Optional[str]) -> int:
+    """Patch StemDeck backend with /api/jobs/rescan route."""
+    sd_dir = find_stemdeck_dir(custom_dir)
+    if not sd_dir:
+        print("[!] Could not locate StemDeck installation directory.")
+        print("    Please provide --stemdeck-dir PATH (e.g. ~/Applications/StemDeck or /opt/stemdeck).")
+        return 1
+
+    print(f"[*] Found StemDeck directory at: {sd_dir}")
+    patched, status_msg = is_stemdeck_patched(sd_dir)
+    if patched:
+        print(f"[+] {status_msg}")
+        return 0
+
+    ok, msg = patch_stemdeck(sd_dir)
+    if ok:
+        print(f"[+] {msg}")
+        print("    Note: Please restart StemDeck once to activate the new live rescan endpoint.")
+        return 0
+    else:
+        print(f"[!] {msg}")
+        return 1
+
+
+def rescan_action(port: int = 10000) -> int:
+    """Trigger StemDeck live library rescan via API."""
+    print(f"[*] Requesting StemDeck live rescan at http://127.0.0.1:{port}/api/jobs/rescan...")
+    ok = notify_stemdeck_rescan(port=port)
+    return 0 if ok else 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="trackdeck",
@@ -343,6 +375,14 @@ def main():
     comp_parser.add_argument("shell", nargs="?", default="fish", choices=["fish"], help="Target shell (default: fish)")
     comp_parser.add_argument("--install", action="store_true", help="Install completions into ~/.config/fish/completions/")
 
+    # Command: patch-stemdeck
+    patch_parser = subparsers.add_parser("patch-stemdeck", help="Patch StemDeck backend with /api/jobs/rescan for zero-restart live ingestion")
+    patch_parser.add_argument("--stemdeck-dir", type=str, default=None, help="Path to StemDeck app directory (default: auto-detect)")
+
+    # Command: rescan
+    rescan_parser = subparsers.add_parser("rescan", help="Trigger StemDeck live library rescan via API")
+    rescan_parser.add_argument("--port", type=int, default=10000, help="StemDeck backend port (default: 10000)")
+
     if len(sys.argv) == 1:
         parser.print_help()
         return 0
@@ -354,6 +394,12 @@ def main():
 
     if args.command == "profiles":
         return profiles_action(args)
+
+    if args.command == "patch-stemdeck":
+        return patch_stemdeck_action(getattr(args, "stemdeck_dir", None))
+
+    if args.command == "rescan":
+        return rescan_action(getattr(args, "port", 10000))
 
     if args.command == "completion":
         from track_deck.completions import generate_fish_completions, install_fish_completions

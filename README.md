@@ -139,4 +139,56 @@ trackdeck profiles --delete xr18_sunday
 | `trackdeck single <path>` | Ingest a single multitrack song or folder of WAVs |
 | `trackdeck markers <file>` | List detected song markers in session |
 | `trackdeck profiles` | List and manage channel routing profiles |
+| `trackdeck patch-stemdeck` | Patch StemDeck backend with `/api/jobs/rescan` for zero-restart live reload |
+| `trackdeck rescan` | Manually trigger StemDeck live library rescan via API |
 | `trackdeck completion` | Output Fish completion script (`--install` to install) |
+
+---
+
+## Installation & Release Integration
+
+### 1. One-Command Quick Install
+From the TrackDeck repository:
+```bash
+./install.sh
+```
+This script:
+1. Links to StemDeck's bundled Python environment (or system Python 3.9+).
+2. Verifies audio dependencies (`numpy`, `soundfile`, `scipy`).
+3. Installs `trackdeck` and `track-deck` commands into `~/.local/bin/`.
+4. Automatically installs Fish shell completions into `~/.config/fish/completions/`.
+5. Checks and patches StemDeck with the live rescan endpoint.
+
+### 2. StemDeck Live Rescan Integration
+StemDeck's backend maintains its job library in an in-memory dictionary loaded at startup. Without a live reload hook, externally injected jobs require restarting StemDeck.
+
+TrackDeck includes a non-destructive patcher:
+```bash
+trackdeck patch-stemdeck
+```
+- **What it does**: Adds a lightweight `@router.api_route("/rescan", methods=["GET", "POST"])` endpoint to StemDeck's `app/api/jobs.py` (with automatic `.bak` backups).
+- **Zero-Restart Reactivity**: Whenever TrackDeck finishes injecting a song, it automatically calls `POST /api/jobs/rescan`. StemDeck's frontend picks up the new songs immediately as soon as the app window is focused!
+- **Idempotent**: Safe to run repeatedly across StemDeck updates or reinstallations.
+
+---
+
+## Ecosystem: TrackDeck + StemDeck + ChordDeck
+
+TrackDeck and ChordDeck together form a complete lossless workflow for live audio:
+
+```text
+[ Live Console Multitrack (XR-18, etc.) ]
+                    │
+                    ▼
+          [ TrackDeck Middleware ]
+       (Lossless stem summing & marker slicing)
+                    │
+                    ▼  (Zero AI artifacts; instant ingestion)
+            [ StemDeck App ]
+   (Playback, mixdown, timeline section editing)
+                    │
+                    ▼
+          [ ChordDeck Middleware ]
+     (Autonomous chord recognition & ChordPro/PDFs)
+```
+
