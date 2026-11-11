@@ -74,9 +74,24 @@ trackdeck single /path/to/multitrack_folder/ --title "May Galak"
 
 ---
 
-## Channel Routing Profiles
+## Channel Routing & Profiles
 
-TrackDeck features an interactive terminal dialog that automatically classifies track names (e.g. `DRUM LOW` -> `drums`, `KEY1` -> `piano`, `MIC1` -> `vocals`, `SHURE` / `BEH` -> `other`).
+TrackDeck automatically classifies track names into StemDeck's 6 canonical stem targets using universal audio engineering standards (`VOX`/`MIC` -> `vocals`, `KICK`/`SNARE`/`OH` -> `drums`, `GTR` -> `guitar`, etc.).
+
+### Standard Channel Classification Heuristics
+
+When running without an explicit profile, TrackDeck automatically classifies tracks using standard mixing desk conventions:
+
+| Target Stem | Recognized Industry Keywords & Abbreviations |
+| :--- | :--- |
+| **`vocals`** | `VOX`, `VOCAL`, `VOCALS`, `MIC`, `LEAD`, `BGV`, `BACKING`, `HARMONY`, `SINGER`, `CHOIR` |
+| **`drums`** | `DRUM`, `DRUMS`, `KICK`, `BD`, `SNARE`, `SN`, `TOM`, `TOMS`, `HAT`, `HIHAT`, `CYMBAL`, `OVERHEAD`, `OH`, `PERC`, `PERCUSSION` |
+| **`bass`** | `BASS`, `BS` |
+| **`guitar`** | `GUITAR`, `GTR`, `ACOUSTIC`, `AC`, `ELECTRIC`, `EG` |
+| **`piano`** | `KEY`, `KEYS`, `PIANO`, `SYNTH`, `ORGAN`, `RHODES`, `KEYBOARD`, `PAD` |
+| **`other`** | `ROOM`, `AMBIENT`, `AUDIENCE`, `TALK`, `SPEECH`, `CLICK`, `GUIDE`, `AUX`, `FX` |
+
+> **Setup-Specific Labels**: Custom hardware names, stagebox labels, or brand-specific mic channels (e.g., `SHURE`, `BEH1`, `WIRELESS_A`) are treated as arbitrary and fall back to `other` by default. They should be mapped during the interactive prompt or saved into a reusable profile (`--profile <name>`).
 
 ### Interactive Dialog
 When running without a pre-loaded profile, TrackDeck displays:
@@ -94,8 +109,8 @@ When running without a pre-loaded profile, TrackDeck displays:
 6    | DRUM HIGH                    | drums         | [Enter number to change]
 7    | DRUM SNARE                   | drums         | [Enter number to change]
 8    | MIC1                         | vocals        | [Enter number to change]
-9    | SHURE                        | other         | [Enter number to change]
-10   | BEH1                         | other         | [Enter number to change]
+9    | ROOM                         | other         | [Enter number to change]
+10   | AMBIENT                      | other         | [Enter number to change]
 ----------------------------------------------------------------------------
 ```
 You can reassign any channel, proceed (`c`), or save the mapping as a reusable profile (`p`).

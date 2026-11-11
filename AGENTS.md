@@ -14,10 +14,18 @@ TrackDeck operates as a multitrack ingestion middleware for StemDeck. When synth
 - **Peak Headroom Control**: If the master mix peak exceeds `0.95` (clipping threshold), apply proportional attenuation across all stems so the peak is held at `-0.5 dBFS` with zero digital distortion.
 - If the recording is quiet (`peak < 0.25`), apply transparent proportional gain boost.
 
-## 3. Profiles Invariant
+## 3. Profiles & Channel Heuristics Invariant
 - **No Implicit Profile Loading**: Channel routing profiles are **NEVER loaded by default**.
 - Profiles must be explicitly requested by the user via the `--profile <name_or_path>` switch.
 - When no profile is passed, TrackDeck runs an interactive track-to-stem assignment dialog (or uses heuristic naming defaults if `-y` is passed).
+- **Universal Industry Heuristics Only**: Default track name heuristics must strictly stick to professional audio mixing standards:
+  - `vocals`: `VOX`, `VOCAL`, `MIC`, `LEAD`, `BGV`, `BACKING`, `HARMONY`, `CHOIR`
+  - `drums`: `DRUM`, `KICK`, `BD`, `SNARE`, `SN`, `TOM`, `HAT`, `HIHAT`, `CYMBAL`, `OH`, `OVERHEAD`, `PERC`
+  - `bass`: `BASS`, `BS`
+  - `guitar`: `GUITAR`, `GTR`, `ACOUSTIC`, `ELECTRIC`, `EG`
+  - `piano`: `KEY`, `KEYS`, `PIANO`, `SYNTH`, `ORGAN`, `RHODES`, `KEYBOARD`, `PAD`
+  - `other`: `ROOM`, `AMBIENT`, `AUDIENCE`, `TALK`, `SPEECH`, `CLICK`, `GUIDE`, `AUX`, `FX`
+- **Prohibition on Hardware/Brand-Specific Defaults**: Never hardcode user-specific or brand-specific labels (e.g. `SHURE`, `BEH`, `WIRELESS_1`) into default heuristics. They must fall back to `other` unless mapped in an explicit profile.
 
 ## 4. Command Structure Invariant
 - Preempting ingestion with a generic `process` command is forbidden.
