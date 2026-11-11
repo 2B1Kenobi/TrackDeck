@@ -38,7 +38,7 @@ TrackDeck operates as a multitrack ingestion middleware for StemDeck. When synth
 - Whenever modifying `track_deck/cli.py` (adding/renaming flags, arguments, or subcommands), the Fish shell completion engine in `track_deck/completions.py` MUST be updated in lockstep.
 - **Native Completion Commands**:
   - `trackdeck completion fish`: Prints dynamic Fish completion script to stdout.
-  - `trackdeck completion --install`: Installs and links completions directly into `~/.config/fish/completions/trackdeck.fish` and `track-deck.fish`.
+  - `trackdeck completion --install`: Installs and links completions directly into `~/.config/fish/completions/trackdeck.fish`.
 - **Pre-Commit Enforcement**:
   - A Git pre-commit hook in `.githooks/pre-commit` automatically verifies and compiles Fish completions whenever `cli.py` or `completions.py` is staged.
   - The hook validates syntax using `fish -n`.

@@ -18,4 +18,3 @@ dependencies = [
 
 [project.scripts]
 trackdeck = "track_deck.cli:main"
-track-deck = "track_deck.cli:main"

@@ -53,10 +53,8 @@ EOF
 # Substitute actual install dir
 sed -i "s|__TRACKDECK_DIR__|${SCRIPT_DIR}|g" "${LAUNCHER}"
 chmod +x "${LAUNCHER}"
-
-# Create alias symlink
-ln -sf "${LAUNCHER}" "${BIN_DIR}/track-deck"
-echo "[+] Installed CLI launchers into ${BIN_DIR}/ (trackdeck, track-deck)"
+rm -f "${BIN_DIR}/track-deck"
+echo "[+] Installed CLI launcher into ${BIN_DIR}/trackdeck"
 
 # 4. Install Fish completions
 if command -v fish >/dev/null 2>&1 || [ -d "${HOME}/.config/fish" ]; then

@@ -155,7 +155,7 @@ From the TrackDeck repository:
 This script:
 1. Links to StemDeck's bundled Python environment (or system Python 3.9+).
 2. Verifies audio dependencies (`numpy`, `soundfile`, `scipy`).
-3. Installs `trackdeck` and `track-deck` commands into `~/.local/bin/`.
+3. Installs `trackdeck` command into `~/.local/bin/`.
 4. Automatically installs Fish shell completions into `~/.config/fish/completions/`.
 5. Checks and patches StemDeck with the live rescan endpoint.
 

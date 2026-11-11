@@ -5,8 +5,8 @@ from typing import Tuple
 
 
 def generate_fish_completions() -> str:
-    """Generate complete, dynamic Fish shell completions for trackdeck and track-deck."""
-    return '''# Fish completions for trackdeck & track-deck
+    """Generate complete, dynamic Fish shell completions for trackdeck."""
+    return '''# Fish completions for trackdeck
 # Generated automatically by TrackDeck built-in completion engine.
 
 function __fish_trackdeck_needs_command
@@ -54,7 +54,7 @@ function __fish_trackdeck_profiles
     end
 end
 
-for app in trackdeck track-deck
+for app in trackdeck
     # Disable default file completion unless explicitly triggered
     complete -c $app -f
 
@@ -104,7 +104,7 @@ end
 
 
 def install_fish_completions() -> Tuple[bool, str]:
-    """Install or update Fish completion scripts for trackdeck and track-deck."""
+    """Install or update Fish completion script for trackdeck."""
     fish_comp_dir = Path.home() / ".config" / "fish" / "completions"
     fish_comp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -114,16 +114,9 @@ def install_fish_completions() -> Tuple[bool, str]:
 
     try:
         target_file.write_text(content, encoding="utf-8")
-        if not alias_file.exists() or alias_file.is_symlink():
-            try:
-                if alias_file.is_symlink():
-                    alias_file.unlink()
-                alias_file.symlink_to("trackdeck.fish")
-            except Exception:
-                alias_file.write_text(content, encoding="utf-8")
-        elif alias_file.is_file():
-            alias_file.write_text(content, encoding="utf-8")
+        if alias_file.is_symlink() or alias_file.exists():
+            alias_file.unlink(missing_ok=True)
 
-        return True, f"[+] Successfully installed Fish completions to:\n    - {target_file}\n    - {alias_file}"
+        return True, f"[+] Successfully installed Fish completions to: {target_file}"
     except Exception as e:
         return False, f"[!] Failed to write Fish completions: {e}"

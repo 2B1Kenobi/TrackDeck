@@ -14,7 +14,6 @@ setup(
     entry_points={
         "console_scripts": [
             "trackdeck=track_deck.cli:main",
-            "track-deck=track_deck.cli:main",
         ],
     },
 )
