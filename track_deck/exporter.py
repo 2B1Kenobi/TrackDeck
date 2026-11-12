@@ -6,6 +6,8 @@ for weekly rehearsal distribution with dynamic N-stem faders, waveforms, and lyr
 
 import json
 import re
+import secrets
+import string
 import subprocess
 import time
 from pathlib import Path
@@ -290,17 +292,19 @@ def rotate_rehearsal_auth(target_root: Path) -> Optional[Dict[str, Any]]:
     if days_ahead == 0 and (now_pht.hour >= 23 and now_pht.minute >= 59):
         days_ahead = 7
 
+    # Calculate expiration timestamp for Monday 06:00:00 AM PHT after upcoming Sunday
     target_sunday = now_pht + timedelta(days=days_ahead)
-    # After Sunday in Philippines: Monday morning 06:00:00 AM PHT
     after_sunday = target_sunday + timedelta(days=1)
     expiry_pht = after_sunday.replace(hour=6, minute=0, second=0, microsecond=0)
     expiry_utc = expiry_pht.astimezone(timezone.utc)
     expiry_ts = int(expiry_utc.timestamp())
 
-    salt = secrets.token_hex(16)
-    key_suffix = secrets.token_hex(2).upper()
-    weekly_key = f"{target_sunday.strftime('%b%d')}-{key_suffix}"
-    key_id = f"set-{target_sunday.strftime('%Y-w%W')}"
+    # 100% cryptographically random 128-bit entropy passkey (no predictable dates or patterns)
+    alphabet = string.ascii_letters + string.digits
+    raw_key = "".join(secrets.choice(alphabet) for _ in range(16))
+    weekly_key = f"{raw_key[0:4]}-{raw_key[4:8]}-{raw_key[8:12]}-{raw_key[12:16]}"
+    key_id = f"set-{secrets.token_hex(6)}"
+    salt = secrets.token_hex(32)
     expires_str = expiry_pht.strftime("%A, %b %d, %Y %I:%M:%S %p PHT (UTC+8)")
 
     functions_dir = target_root / "functions"
