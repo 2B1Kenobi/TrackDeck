@@ -278,6 +278,55 @@ def update_manifest_file(songs_dir: Path, new_entries: List[Dict[str, Any]]) -> 
     print(f"[+] Updated manifest: {manifest_file} ({len(data['songs'])} total songs)")
 
 
+def rotate_rehearsal_auth(target_root: Path) -> Optional[Dict[str, Any]]:
+    """Generate and write a new weekly time-bounded passkey tied to Philippine time (PHT / UTC+8)."""
+    import secrets
+    from datetime import datetime, timedelta, timezone
+
+    # Philippine Time is UTC+8
+    pht = timezone(timedelta(hours=8))
+    now_pht = datetime.now(pht)
+    days_ahead = (6 - now_pht.weekday()) % 7
+    if days_ahead == 0 and (now_pht.hour >= 23 and now_pht.minute >= 59):
+        days_ahead = 7
+
+    target_sunday = now_pht + timedelta(days=days_ahead)
+    # After Sunday in Philippines: Monday morning 06:00:00 AM PHT
+    after_sunday = target_sunday + timedelta(days=1)
+    expiry_pht = after_sunday.replace(hour=6, minute=0, second=0, microsecond=0)
+    expiry_utc = expiry_pht.astimezone(timezone.utc)
+    expiry_ts = int(expiry_utc.timestamp())
+
+    salt = secrets.token_hex(16)
+    key_suffix = secrets.token_hex(2).upper()
+    weekly_key = f"{target_sunday.strftime('%b%d')}-{key_suffix}"
+    key_id = f"set-{target_sunday.strftime('%Y-w%W')}"
+    expires_str = expiry_pht.strftime("%A, %b %d, %Y %I:%M:%S %p PHT (UTC+8)")
+
+    functions_dir = target_root / "functions"
+    if not functions_dir.is_dir():
+        return None
+
+    config_js = functions_dir / "auth_config.js"
+    content = (
+        f"// Generated automatically by TrackDeck export\n"
+        f"export const authConfig = {{\n"
+        f'  weeklyKey: "{weekly_key}",\n'
+        f'  keyId: "{key_id}",\n'
+        f"  validUntil: {expiry_ts},\n"
+        f'  expiresPHT: "{expires_str}",\n'
+        f'  salt: "{salt}"\n'
+        f"}};\n"
+    )
+    config_js.write_text(content, encoding="utf-8")
+    return {
+        "weekly_key": weekly_key,
+        "valid_until_ts": expiry_ts,
+        "expires_str": expires_str,
+        "target_sunday": target_sunday
+    }
+
+
 def export_jobs_command(target_dir_str: str, job_ids: List[str]) -> int:
     """Execute the 'trackdeck export <target_dir> <job_id>...' command."""
     target_root = Path(target_dir_str).expanduser().resolve()
@@ -315,8 +364,18 @@ def export_jobs_command(target_dir_str: str, job_ids: List[str]) -> int:
     if not (target_root / "static").is_dir() and not (target_root / "public").is_dir():
         update_manifest_file(target_root / "songs", exported_entries)
 
+    # Roll weekly time-bounded passkey if target has functions/
+    auth_info = rotate_rehearsal_auth(target_root)
+
     print("\n" + "=" * 78)
     print(f"[+] Export complete! {len(exported_entries)} song(s) prepared in {target_root.name}/.")
+    if auth_info:
+        print("-" * 78)
+        print("  Weekly Rehearsal Security (Philippine Standard Time, UTC+8):")
+        print(f"    Weekly Passcode:  {auth_info['weekly_key']}")
+        print(f"    Valid Through:    {auth_info['expires_str']}")
+        print(f"    1-Tap Team Link:  https://jiamakati-practice.pages.dev/#{auth_info['weekly_key']}")
+        print("-" * 78)
     print("    Ready to deploy:")
     print(f"      cd \"{target_root}\" && git add . && git commit -m \"Update rehearsal set\" && git push")
     print("=" * 78)
