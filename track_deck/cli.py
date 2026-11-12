@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from track_deck.dialog import interactive_mapping_dialog
+from track_deck.exporter import export_jobs_command
 from track_deck.injector import inject_job_into_stemdeck, notify_stemdeck_rescan
 from track_deck.parsers import get_session_parser
 from track_deck.parsers.base import BaseSessionParser, MarkerInfo
@@ -383,6 +384,11 @@ def main():
     rescan_parser = subparsers.add_parser("rescan", help="Trigger StemDeck live library rescan via API")
     rescan_parser.add_argument("--port", type=int, default=10000, help="StemDeck backend port (default: 10000)")
 
+    # Command: export
+    export_parser = subparsers.add_parser("export", help="Export StemDeck jobs into static rehearsal player repository (Cloudflare Pages)")
+    export_parser.add_argument("target_dir", type=str, help="Root directory of the rehearsal player git repository")
+    export_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs to export")
+
     if len(sys.argv) == 1:
         parser.print_help()
         return 0
@@ -400,6 +406,9 @@ def main():
 
     if args.command == "rescan":
         return rescan_action(getattr(args, "port", 10000))
+
+    if args.command == "export":
+        return export_jobs_command(args.target_dir, args.jobs)
 
     if args.command == "completion":
         from track_deck.completions import generate_fish_completions, install_fish_completions

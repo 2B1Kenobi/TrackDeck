@@ -65,6 +65,7 @@ for app in trackdeck
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'profiles' -d 'List or manage saved channel routing profiles'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'patch-stemdeck' -d 'Patch StemDeck backend for live rescan'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'rescan' -d 'Trigger StemDeck live library rescan via API'
+    complete -c $app -n '__fish_trackdeck_needs_command' -a 'export' -d 'Export StemDeck jobs into static rehearsal player'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'completion' -d 'Output or install Fish shell completion'
 
     # Global options
@@ -95,6 +96,9 @@ for app in trackdeck
     complete -c $app -n '__fish_trackdeck_using_subcommand profiles' -l list -d 'List all saved routing profiles'
     complete -c $app -n '__fish_trackdeck_using_subcommand profiles' -l show -x -a '(__fish_trackdeck_profiles)' -d 'Display profile mapping'
     complete -c $app -n '__fish_trackdeck_using_subcommand profiles' -l delete -x -a '(__fish_trackdeck_profiles)' -d 'Delete a profile'
+
+    # Subcommand: export
+    complete -c $app -n '__fish_trackdeck_using_subcommand export' -r -F -d 'Target player repository or job ID'
 
     # Subcommand: completion
     complete -c $app -n '__fish_trackdeck_using_subcommand completion' -l install -d 'Install completions into ~/.config/fish/completions/'
