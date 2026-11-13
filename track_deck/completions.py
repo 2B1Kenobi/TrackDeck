@@ -109,6 +109,7 @@ for app in trackdeck
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'rescan' -d 'Trigger StemDeck live library rescan via API'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'export' -d 'Add StemDeck jobs into static rehearsal player (incremental)'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'publish' -d 'Publish a fresh weekly set into static rehearsal player (cleans prior songs)'
+    complete -c $app -n '__fish_trackdeck_needs_command' -a 'sync' -d 'Commit and push rehearsal player repository to GitHub'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'completion' -d 'Output or install Fish shell completion'
 
     # Global options
@@ -147,6 +148,9 @@ for app in trackdeck
     # Subcommand: publish
     complete -c $app -n '__fish_trackdeck_using_subcommand publish' -a '(__fish_trackdeck_jobs)'
     complete -c $app -n '__fish_trackdeck_using_subcommand publish' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
+
+    # Subcommand: sync
+    complete -c $app -n '__fish_trackdeck_using_subcommand sync' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
 
     # Subcommand: completion
     complete -c $app -n '__fish_trackdeck_using_subcommand completion' -l install -d 'Install completions into ~/.config/fish/completions/'

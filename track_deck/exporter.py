@@ -24,6 +24,145 @@ def sanitize_folder_name(name: str) -> str:
     return s or "Song"
 
 
+def format_nerv_minimal_lyrics(text: str) -> str:
+    """Format lyrics into minimal, non-repeating NERV sectioned markdown."""
+    if not text or not text.strip():
+        return ""
+
+    # Strip YAML frontmatter if present
+    cleaned = re.sub(r"^---[\s\S]*?---\s*", "", text.strip())
+
+    header_bracket_re = re.compile(r"^\s*\[\s*([^\]]+?)\s*(?:\([^\)]+\))?\s*\]\s*$")
+    header_colon_re = re.compile(r"^\s*([A-Za-z0-9\s_-]+):\s*$")
+
+    lines = cleaned.splitlines()
+    sections = []
+    curr_header = ""
+    curr_lines = []
+
+    for line in lines:
+        raw_l = line.strip()
+        # Skip ChordPro directives
+        if raw_l.startswith("{") and raw_l.endswith("}"):
+            continue
+
+        m_b = header_bracket_re.match(raw_l)
+        m_c = header_colon_re.match(raw_l)
+
+        if m_b or m_c:
+            if curr_lines or curr_header:
+                sections.append((curr_header, curr_lines))
+                curr_lines = []
+            curr_header = m_b.group(1).title() if m_b else m_c.group(1).title()
+            continue
+
+        if not raw_l:
+            if curr_lines:
+                sections.append((curr_header, curr_lines))
+                curr_header = ""
+                curr_lines = []
+            continue
+
+        # Strip inline chords like [Em7]
+        clean_l = re.sub(r"\[[^\]]*\]", "", raw_l).strip()
+        clean_l = re.sub(r"\s+", " ", clean_l)
+        if clean_l:
+            curr_lines.append(clean_l)
+
+    if curr_lines or curr_header:
+        sections.append((curr_header, curr_lines))
+
+    # Deduplicate non-unique sections (keep only unique stanzas)
+    seen_content = set()
+    out_sections = []
+
+    for header, s_lines in sections:
+        if not s_lines:
+            continue
+        # Signature based on alphanumeric lowercase text
+        sig = " ".join(re.sub(r"[^a-z0-9]", "", l.lower()) for l in s_lines)
+        if not sig or sig in seen_content:
+            continue
+        seen_content.add(sig)
+
+        formatted_block = []
+        if header:
+            formatted_block.append(header.rstrip(":") + ":")
+        formatted_block.extend(s_lines)
+        out_sections.append("\n".join(formatted_block))
+
+    return "\n\n".join(out_sections).strip()
+
+
+def resolve_job_lyrics(job_dir: Path, title: str) -> str:
+    """Resolve job lyrics with nerv.md as top priority, formatted minimally."""
+    exports_dir = Path.home() / "Documents" / "StemDeck" / "exports"
+    safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).strip()
+
+    seen_cands = set()
+    nerv_candidates = [
+        job_dir / "song.nerv.md",
+        *job_dir.glob("*.nerv.md"),
+    ]
+    if exports_dir.is_dir():
+        nerv_candidates.extend([
+            exports_dir / f"{title}.nerv.md",
+            exports_dir / f"{safe_title}.nerv.md",
+            *exports_dir.glob(f"*{safe_title}*.nerv.md"),
+        ])
+
+    # 1. Priority 1: *.nerv.md
+    for cand in nerv_candidates:
+        if cand in seen_cands:
+            continue
+        seen_cands.add(cand)
+        if cand.is_file():
+            try:
+                raw_text = cand.read_text(encoding="utf-8", errors="replace")
+                formatted = format_nerv_minimal_lyrics(raw_text)
+                if formatted:
+                    return formatted
+            except Exception:
+                pass
+
+    # 2. Priority 2: lyrics.txt
+    lyrics_txt = job_dir / "lyrics.txt"
+    if lyrics_txt.is_file():
+        try:
+            raw_text = lyrics_txt.read_text(encoding="utf-8", errors="replace")
+            formatted = format_nerv_minimal_lyrics(raw_text)
+            if formatted:
+                return formatted
+        except Exception:
+            pass
+
+    # 3. Priority 3: lyrics.json
+    lyrics_json = job_dir / "lyrics.json"
+    if lyrics_json.is_file():
+        try:
+            lj = json.loads(lyrics_json.read_text(encoding="utf-8"))
+            lines = [line.get("text", "") for line in lj.get("lines", []) if line.get("text")]
+            raw_text = "\n".join(lines)
+            formatted = format_nerv_minimal_lyrics(raw_text)
+            if formatted:
+                return formatted
+        except Exception:
+            pass
+
+    # 4. Priority 4: song.chordpro
+    chordpro_file = job_dir / "song.chordpro"
+    if chordpro_file.is_file():
+        try:
+            raw_text = chordpro_file.read_text(encoding="utf-8", errors="replace")
+            formatted = format_nerv_minimal_lyrics(raw_text)
+            if formatted:
+                return formatted
+        except Exception:
+            pass
+
+    return ""
+
+
 def compute_audio_peaks(audio_path: Path, sample_rate: int = 8000, samples_per_pixel: int = 512) -> List[float]:
     """Compute normalized peak envelope matching 4StemPlayer / Web Audio canvas specs."""
     try:
@@ -244,25 +383,8 @@ def export_job_to_target(
     for d in target_dirs:
         (d / "song.json").write_text(json.dumps(song_json_data, indent=2) + "\n", encoding="utf-8")
 
-    # Copy lyrics if available
-    lyrics_txt = job_dir / "lyrics.txt"
-    lyrics_json = job_dir / "lyrics.json"
-    chordpro_file = job_dir / "song.chordpro"
-
-    lyrics_content = ""
-    if lyrics_txt.is_file():
-        lyrics_content = lyrics_txt.read_text(encoding="utf-8")
-    elif lyrics_json.is_file():
-        try:
-            lj = json.loads(lyrics_json.read_text(encoding="utf-8"))
-            lines = [line.get("text", "") for line in lj.get("lines", []) if line.get("text")]
-            lyrics_content = "\n".join(lines)
-        except Exception:
-            pass
-
-    if not lyrics_content and chordpro_file.is_file():
-        lyrics_content = chordpro_file.read_text(encoding="utf-8")
-
+    # Resolve lyrics (Priority: nerv.md -> lyrics.txt -> lyrics.json -> song.chordpro)
+    lyrics_content = resolve_job_lyrics(job_dir, title)
     if lyrics_content:
         for d in target_dirs:
             (d / "lyrics.md").write_text(lyrics_content.strip() + "\n", encoding="utf-8")
@@ -359,14 +481,12 @@ def rotate_rehearsal_auth(target_root: Path, force: bool = True) -> Optional[Dic
             content = config_js.read_text(encoding="utf-8")
             m_key = re.search(r'weeklyKey:\s*"([^"]+)"', content)
             m_exp = re.search(r'validUntil:\s*(\d+)', content)
-            m_exp_str = re.search(r'expiresPHT:\s*"([^"]+)"', content)
             if m_key and m_exp:
                 valid_until = int(m_exp.group(1))
                 if valid_until > now_ts:
                     return {
                         "weekly_key": m_key.group(1),
                         "valid_until_ts": valid_until,
-                        "expires_str": m_exp_str.group(1) if m_exp_str else "",
                         "is_reused": True
                     }
         except Exception:
@@ -397,7 +517,6 @@ def rotate_rehearsal_auth(target_root: Path, force: bool = True) -> Optional[Dic
         f'  weeklyKey: "{weekly_key}",\n'
         f'  keyId: "{key_id}",\n'
         f"  validUntil: {expiry_ts},\n"
-        f'  expiresPHT: "{expires_str}",\n'
         f'  salt: "{salt}"\n'
         f"}};\n"
     )
@@ -475,12 +594,71 @@ def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str], clean
     if auth_info:
         reused_tag = " (active weekly key preserved)" if auth_info.get("is_reused") else " (new cycle passkey generated)"
         print("-" * 78)
-        print(f"  Weekly Rehearsal Security (Philippine Standard Time, UTC+8){reused_tag}:")
+        print(f"  Weekly Rehearsal Security{reused_tag}:")
         print(f"    Weekly Passcode:  {auth_info['weekly_key']}")
-        print(f"    Valid Through:    {auth_info['expires_str']}")
+        if auth_info.get("expires_str"):
+            print(f"    Valid Through:    {auth_info['expires_str']}")
         print(f"    1-Tap Team Link:  https://jiamakati-practice.pages.dev/#{auth_info['weekly_key']}")
         print("-" * 78)
     print("    Ready to deploy:")
-    print(f"      cd \"{target_root}\" && git add . && git commit -m \"Update rehearsal set\" && git push")
+    print(f"      trackdeck sync \"Update rehearsal set\"")
     print("=" * 78)
+    return 0
+
+
+def sync_rehearsal_repo(target_dir_str: Optional[str], message: str) -> int:
+    """Commit and push rehearsal player repository to GitHub."""
+    target_root = Path(target_dir_str).expanduser().resolve() if target_dir_str else get_default_player_dir()
+    if not (target_root / ".git").is_dir():
+        print(f"[!] Error: Target directory is not a git repository: {target_root}")
+        return 1
+
+    print("=" * 78)
+    print(f"  TrackDeck Sync: Rehearsal Player Repository Deployment")
+    print(f"  Target Repository: {target_root}")
+    print(f"  Commit Message:    \"{message}\"")
+    print("=" * 78)
+
+    # Check working tree status
+    try:
+        status_res = subprocess.run(
+            ["git", "-C", str(target_root), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+    except Exception as e:
+        print(f"[!] Git status check failed: {e}")
+        return 1
+
+    if status_res.stdout.strip():
+        print(f"[*] Staging all changes in {target_root.name}/...")
+        subprocess.run(["git", "-C", str(target_root), "add", "-A"], check=True)
+
+        print(f"[*] Committing changes...")
+        subprocess.run(["git", "-C", str(target_root), "commit", "-m", message], check=True)
+    else:
+        print(f"[*] Working tree is clean in {target_root.name}/.")
+
+    # Check if there are any unpushed commits
+    unpushed_res = subprocess.run(
+        ["git", "-C", str(target_root), "cherry", "-v"],
+        capture_output=True,
+        text=True
+    )
+    if not unpushed_res.stdout.strip():
+        print(f"[+] {target_root.name}/ is already up to date with remote.")
+        return 0
+
+    print(f"[*] Pushing to GitHub remote repository...")
+    push_res = subprocess.run(
+        ["git", "-C", str(target_root), "push"],
+        capture_output=True,
+        text=True
+    )
+    if push_res.returncode != 0:
+        print(f"[!] Git push failed:\n{push_res.stderr}")
+        return 1
+
+    print(f"[+] Successfully synced and pushed {target_root.name}/ to GitHub!")
     return 0

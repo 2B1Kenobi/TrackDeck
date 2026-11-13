@@ -24,7 +24,12 @@
 * **Rehearsal Player Distribution (`export` vs. `publish`):**
   - **`trackdeck publish <job> [Nth-job ...]` (Fresh Cycle):** Starts the rehearsal cycle for the next weekly loop. Automatically cleans all prior songs from the target player repository (`4StemPlayer`), exports the newly specified jobs, creates a fresh `manifest.json`, and generates a new weekly 128-bit time-bounded passkey in `auth_config.js`.
   - **`trackdeck export <job> [Nth-job ...]` (Additive / Incremental):** Adds or updates songs within an active weekly set without removing existing songs. Merges entries into `manifest.json` and preserves the current valid weekly passkey.
+* **Rehearsal Deployment Pipeline (`sync`):**
+  - **`trackdeck sync "<commit message>"`:** Automated pipeline to stage all changes (`git add -A`), commit with the provided message, and push directly to GitHub in the target rehearsal player repository (`4StemPlayer`).
 * **Target Directory Resolution:**
   - Default target repository is `~/Projects/4StemPlayer` (or configurable via `TRACKDECK_PLAYER_DIR` or `--dir / -d`).
   - If the first positional argument is an existing directory, it is gracefully accepted as `target_dir` with subsequent arguments treated as `jobs`.
 * **Dynamic Job Completion:** Fish completions for `export` and `publish` dynamically query `~/Documents/StemDeck/jobs/registry.json` filtering for `status == "done"`, extracting job IDs with their clean song titles, offering `latest`, and filtering out already-selected jobs across all Nth-job positions.
+* **Lyrics Resolution & Minimal NERV Invariant:**
+  - `lyrics.md` exported for 4StemPlayer resolves `*.nerv.md` (`job_dir/song.nerv.md`, `exports/<title>.nerv.md`) as **first priority**, followed by `lyrics.txt`, `lyrics.json`, and `song.chordpro`.
+  - All published lyrics are normalized into minimal NERV format: YAML frontmatter stripped, inline chords removed, and non-unique repeating stanzas deduplicated so only unique sections are displayed.

@@ -394,6 +394,11 @@ def main():
     publish_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs (or 'latest') to publish")
     publish_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
 
+    # Command: sync
+    sync_parser = subparsers.add_parser("sync", help="Commit and push rehearsal player repository to GitHub")
+    sync_parser.add_argument("message", type=str, help="Git commit message")
+    sync_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
+
     if len(sys.argv) == 1:
         parser.print_help()
         return 0
@@ -422,6 +427,10 @@ def main():
             job_ids = raw_jobs
         clean = (args.command == "publish")
         return export_jobs_command(target_dir, job_ids, clean=clean)
+
+    if args.command == "sync":
+        from track_deck.exporter import sync_rehearsal_repo
+        return sync_rehearsal_repo(getattr(args, "target_dir", None), args.message)
 
     if args.command == "completion":
         from track_deck.completions import generate_fish_completions, install_fish_completions
