@@ -26,8 +26,9 @@
   - **`trackdeck export <job> [Nth-job ...]` (Additive / Incremental):** Adds or updates songs within an active weekly set without removing existing songs. Merges entries into `manifest.json` and preserves the current valid weekly passkey.
 * **Rehearsal Deployment Pipeline (`sync`):**
   - **`trackdeck sync "<commit message>"`:** Automated pipeline to stage all changes (`git add -A`), commit with the provided message, and push directly to GitHub in the target rehearsal player repository (`4StemPlayer`).
-* **Target Directory Resolution:**
+* **Target Directory & Player URL Resolution:**
   - Default target repository is `~/Projects/4StemPlayer` (or configurable via `TRACKDECK_PLAYER_DIR` or `--dir / -d`).
+  - Default 1-tap link target is `https://jiamakaticma.pages.dev` (or configurable via `TRACKDECK_PLAYER_URL`).
   - If the first positional argument is an existing directory, it is gracefully accepted as `target_dir` with subsequent arguments treated as `jobs`.
 * **Dynamic Job Completion:** Fish completions for `export` and `publish` dynamically query `~/Documents/StemDeck/jobs/registry.json` filtering for `status == "done"`, extracting job IDs with their clean song titles, offering `latest`, and filtering out already-selected jobs across all Nth-job positions.
 * **Lyrics Resolution & Minimal NERV Invariant:**

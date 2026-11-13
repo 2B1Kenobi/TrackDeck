@@ -5,6 +5,7 @@ for weekly rehearsal distribution with dynamic N-stem faders, waveforms, and lyr
 """
 
 import json
+import os
 import re
 import secrets
 import string
@@ -721,7 +722,8 @@ def export_jobs_command(
         print(f"    Weekly Passcode:  {auth_info['weekly_key']}")
         if auth_info.get("expires_str"):
             print(f"    Valid Through:    {auth_info['expires_str']}")
-        print(f"    1-Tap Team Link:  https://jiamakati-practice.pages.dev/#{auth_info['weekly_key']}")
+        player_base_url = os.environ.get("TRACKDECK_PLAYER_URL", "https://jiamakaticma.pages.dev").rstrip("/")
+        print(f"    1-Tap Team Link:  {player_base_url}/#{auth_info['weekly_key']}")
         print("-" * 78)
     print("    Ready to deploy:")
     print(f"      trackdeck sync \"Update rehearsal set\"")
