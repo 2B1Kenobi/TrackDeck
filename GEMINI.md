@@ -34,6 +34,9 @@
 * **Lyrics Resolution & Minimal NERV Invariant:**
   - `lyrics.md` exported for 4StemPlayer resolves `*.nerv.md` (`job_dir/song.nerv.md`, `exports/<title>.nerv.md`) as **first priority**, followed by `lyrics.txt`, `lyrics.json`, and `song.chordpro`.
   - All published lyrics are normalized into minimal NERV format: YAML frontmatter stripped, inline chords removed, and non-unique repeating stanzas deduplicated so only unique sections are displayed.
+* **Isolated Stems Invariant (Exclusion of Master Reference Tracks):**
+  - Master sum/reference tracks (`mix.wav`, `source.wav`, `master.wav`, `reference.wav`, `preview.wav`, `full.wav`) stored in StemDeck job directories are strictly excluded during export.
+  - Rehearsal players strictly receive isolated constituent stems (`vocals`, `drums`, `bass`, `guitar`, `piano`, `keys`, `strings`, `fx`, `other`) so playback never doubles the master mix or breaks mute/solo isolation.
 
 ## 6. Title Sanitation & Trimming Invariant
 * **Sanitation Algorithm (`suggest_sanitized_title`):**

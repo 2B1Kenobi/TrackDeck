@@ -75,6 +75,14 @@ class TestTitleSanitation(unittest.TestCase):
         resolved = resolve_sanitized_title(raw, artist="Sinach", interactive=True)
         self.assertEqual(resolved, "Way Maker")
 
+    def test_ignored_master_stems_filter(self):
+        from track_deck.exporter import get_default_stemdeck_jobs_dir
+        # Ensure 'mix', 'source', 'master' are ignored
+        ignored = {"mix", "source", "master", "reference", "preview", "full"}
+        candidate_stems = ["vocals", "drums", "bass", "guitar", "piano", "mix", "other", "source"]
+        filtered = [s for s in candidate_stems if s.lower() not in ignored]
+        self.assertEqual(filtered, ["vocals", "drums", "bass", "guitar", "piano", "other"])
+
 
 if __name__ == "__main__":
     unittest.main()

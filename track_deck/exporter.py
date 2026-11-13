@@ -408,10 +408,17 @@ def export_job_to_target(
 
     print(f"[*] Exporting '{title}' ({job_id}) -> {primary_song_dir.name}/")
 
+    # Master reference tracks to exclude from isolated stem export
+    ignored_stems = {"mix", "source", "master", "reference", "preview", "full"}
+
     # Preferred order of stems; any additional stems found will follow
     standard_order = ["vocals", "guitar", "piano", "keys", "strings", "drums", "bass", "fx", "other"]
     all_stem_files = list(stems_dir.glob("*.wav")) + list(stems_dir.glob("*.flac")) + list(stems_dir.glob("*.mp3"))
-    all_stems_dict = {f.stem.lower(): f for f in all_stem_files}
+    all_stems_dict = {
+        f.stem.lower(): f
+        for f in all_stem_files
+        if f.stem.lower() not in ignored_stems
+    }
 
     ordered_stem_names = [s for s in standard_order if s in all_stems_dict]
     for s in sorted(all_stems_dict.keys()):
