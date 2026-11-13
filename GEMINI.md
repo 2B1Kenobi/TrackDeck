@@ -20,9 +20,11 @@
 ## 4. Maintenance of Shell Completions
 * Any modification to `track_deck/cli.py` (flags, subcommands, arguments) requires updating `track_deck/completions.py` in lockstep.
 
-## 5. Rehearsal Player Export & CLI Standards
-* **Static Rehearsal Export:** `trackdeck export <job> [Nth-job ...]` exports StemDeck jobs into a static rehearsal web player (e.g. `4StemPlayer` on Cloudflare Pages).
+## 5. Rehearsal Player Export, Publish & CLI Standards
+* **Rehearsal Player Distribution (`export` vs. `publish`):**
+  - **`trackdeck publish <job> [Nth-job ...]` (Fresh Cycle):** Starts the rehearsal cycle for the next weekly loop. Automatically cleans all prior songs from the target player repository (`4StemPlayer`), exports the newly specified jobs, creates a fresh `manifest.json`, and generates a new weekly 128-bit time-bounded passkey in `auth_config.js`.
+  - **`trackdeck export <job> [Nth-job ...]` (Additive / Incremental):** Adds or updates songs within an active weekly set without removing existing songs. Merges entries into `manifest.json` and preserves the current valid weekly passkey.
 * **Target Directory Resolution:**
   - Default target repository is `~/Projects/4StemPlayer` (or configurable via `TRACKDECK_PLAYER_DIR` or `--dir / -d`).
   - If the first positional argument is an existing directory, it is gracefully accepted as `target_dir` with subsequent arguments treated as `jobs`.
-* **Dynamic Job Completion:** Fish completions for `export` dynamically query `~/Documents/StemDeck/jobs`, extracting job IDs with their song titles, offering `latest`, and filtering out already-selected jobs across all Nth-job positions.
+* **Dynamic Job Completion:** Fish completions for `export` and `publish` dynamically query `~/Documents/StemDeck/jobs/registry.json` filtering for `status == "done"`, extracting job IDs with their clean song titles, offering `latest`, and filtering out already-selected jobs across all Nth-job positions.

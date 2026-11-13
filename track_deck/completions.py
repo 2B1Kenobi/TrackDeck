@@ -56,6 +56,7 @@ end
 
 function __fish_trackdeck_jobs
     set -l jobs_dir "$HOME/Documents/StemDeck/jobs"
+    set -l reg_file "$jobs_dir/registry.json"
     if not test -d "$jobs_dir"
         return
     end
@@ -63,27 +64,31 @@ function __fish_trackdeck_jobs
     set -l cmd (commandline -opc)
 
     if not contains "latest" $cmd
-        printf "%s\\t%s\\n" "latest" "Export most recent job"
+        printf "%s\\t%s\\n" "latest" "Most recent StemDeck job"
     end
 
-    for job_path in $jobs_dir/*
-        if test -d "$job_path"
-            set -l job_name (basename "$job_path")
-            if test "$job_name" != "failed" -a "$job_name" != "exports"
-                if not contains "$job_name" $cmd
-                    set -l meta_file "$job_path/metadata.json"
-                    set -l title ""
-                    if test -f "$meta_file"
-                        if command -v jq >/dev/null 2>&1
-                            set title (jq -r '.title // empty' "$meta_file" 2>/dev/null)
-                        else
+    if test -f "$reg_file"; and command -v jq >/dev/null 2>&1
+        jq -r '.jobs[] | select(.status == "done") | "\\(.id)\\t\\(.title // "StemDeck Job")"' "$reg_file" 2>/dev/null | while read -l jid jtitle
+            if not contains "$jid" $cmd
+                printf "%s\\t%s\\n" "$jid" "$jtitle"
+            end
+        end
+    else
+        for job_path in $jobs_dir/*
+            if test -d "$job_path"
+                set -l job_name (basename "$job_path")
+                if test "$job_name" != "failed" -a "$job_name" != "exports"
+                    if not contains "$job_name" $cmd
+                        set -l meta_file "$job_path/metadata.json"
+                        set -l title ""
+                        if test -f "$meta_file"
                             set title (sed -n 's/.*"title": *"\\([^"]*\\)".*/\\1/p' "$meta_file" 2>/dev/null | head -n 1)
                         end
-                    end
-                    if test -n "$title"
-                        printf "%s\\t%s\\n" "$job_name" "$title"
-                    else
-                        printf "%s\\tStemDeck Job\\n" "$job_name"
+                        if test -n "$title"
+                            printf "%s\\t%s\\n" "$job_name" "$title"
+                        else
+                            printf "%s\\tStemDeck Job\\n" "$job_name"
+                        end
                     end
                 end
             end
@@ -102,7 +107,8 @@ for app in trackdeck
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'profiles' -d 'List or manage saved channel routing profiles'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'patch-stemdeck' -d 'Patch StemDeck backend for live rescan'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'rescan' -d 'Trigger StemDeck live library rescan via API'
-    complete -c $app -n '__fish_trackdeck_needs_command' -a 'export' -d 'Export StemDeck jobs into static rehearsal player'
+    complete -c $app -n '__fish_trackdeck_needs_command' -a 'export' -d 'Add StemDeck jobs into static rehearsal player (incremental)'
+    complete -c $app -n '__fish_trackdeck_needs_command' -a 'publish' -d 'Publish a fresh weekly set into static rehearsal player (cleans prior songs)'
     complete -c $app -n '__fish_trackdeck_needs_command' -a 'completion' -d 'Output or install Fish shell completion'
 
     # Global options
@@ -137,6 +143,10 @@ for app in trackdeck
     # Subcommand: export
     complete -c $app -n '__fish_trackdeck_using_subcommand export' -a '(__fish_trackdeck_jobs)'
     complete -c $app -n '__fish_trackdeck_using_subcommand export' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
+
+    # Subcommand: publish
+    complete -c $app -n '__fish_trackdeck_using_subcommand publish' -a '(__fish_trackdeck_jobs)'
+    complete -c $app -n '__fish_trackdeck_using_subcommand publish' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
 
     # Subcommand: completion
     complete -c $app -n '__fish_trackdeck_using_subcommand completion' -l install -d 'Install completions into ~/.config/fish/completions/'

@@ -285,18 +285,47 @@ def export_job_to_target(
     return manifest_entry
 
 
-def update_manifest_file(songs_dir: Path, new_entries: List[Dict[str, Any]]) -> None:
+def clean_player_songs(target_root: Path) -> List[str]:
+    """Clean all prior songs and their folders from target player repository."""
+    import shutil
+    cleaned_songs = []
+    song_roots = []
+    if (target_root / "static" / "songs").is_dir():
+        song_roots.append(target_root / "static" / "songs")
+    if (target_root / "public" / "songs").is_dir():
+        song_roots.append(target_root / "public" / "songs")
+    if not song_roots and (target_root / "songs").is_dir():
+        song_roots.append(target_root / "songs")
+
+    for s_root in song_roots:
+        for item in list(s_root.iterdir()):
+            if item.is_dir():
+                try:
+                    shutil.rmtree(item)
+                    if item.name not in cleaned_songs:
+                        cleaned_songs.append(item.name)
+                except Exception as e:
+                    print(f"    [!] Warning: Could not remove {item}: {e}")
+            elif item.name == "manifest.json":
+                try:
+                    item.unlink(missing_ok=True)
+                except Exception:
+                    pass
+    return cleaned_songs
+
+
+def update_manifest_file(songs_dir: Path, new_entries: List[Dict[str, Any]], clean: bool = False) -> None:
     """Update or create manifest.json in the songs root directory."""
     manifest_file = songs_dir / "manifest.json"
     data = {"generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "songs": []}
 
-    if manifest_file.is_file():
+    if not clean and manifest_file.is_file():
         try:
             data = json.loads(manifest_file.read_text(encoding="utf-8"))
         except Exception:
             data = {"generatedAt": "", "songs": []}
 
-    existing_songs = {s["id"]: s for s in data.get("songs", [])}
+    existing_songs = {s["id"]: s for s in data.get("songs", [])} if not clean else {}
     for entry in new_entries:
         existing_songs[entry["id"]] = entry
 
@@ -307,19 +336,47 @@ def update_manifest_file(songs_dir: Path, new_entries: List[Dict[str, Any]]) -> 
     print(f"[+] Updated manifest: {manifest_file} ({len(data['songs'])} total songs)")
 
 
-def rotate_rehearsal_auth(target_root: Path) -> Optional[Dict[str, Any]]:
-    """Generate and write a new weekly time-bounded passkey tied to Philippine time (PHT / UTC+8)."""
+def rotate_rehearsal_auth(target_root: Path, force: bool = True) -> Optional[Dict[str, Any]]:
+    """Generate or retrieve weekly time-bounded passkey tied to Philippine time (PHT / UTC+8)."""
+    import re
     import secrets
     from datetime import datetime, timedelta, timezone
 
     # Philippine Time is UTC+8
     pht = timezone(timedelta(hours=8))
     now_pht = datetime.now(pht)
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    functions_dir = target_root / "functions"
+    if not functions_dir.is_dir():
+        return None
+
+    config_js = functions_dir / "auth_config.js"
+
+    # If not forcing rotation (e.g. incremental export adding to active week set), reuse active passkey
+    if not force and config_js.is_file():
+        try:
+            content = config_js.read_text(encoding="utf-8")
+            m_key = re.search(r'weeklyKey:\s*"([^"]+)"', content)
+            m_exp = re.search(r'validUntil:\s*(\d+)', content)
+            m_exp_str = re.search(r'expiresPHT:\s*"([^"]+)"', content)
+            if m_key and m_exp:
+                valid_until = int(m_exp.group(1))
+                if valid_until > now_ts:
+                    return {
+                        "weekly_key": m_key.group(1),
+                        "valid_until_ts": valid_until,
+                        "expires_str": m_exp_str.group(1) if m_exp_str else "",
+                        "is_reused": True
+                    }
+        except Exception:
+            pass
+
+    # Calculate expiration timestamp for Monday 06:00:00 AM PHT after upcoming Sunday
     days_ahead = (6 - now_pht.weekday()) % 7
     if days_ahead == 0 and (now_pht.hour >= 23 and now_pht.minute >= 59):
         days_ahead = 7
 
-    # Calculate expiration timestamp for Monday 06:00:00 AM PHT after upcoming Sunday
     target_sunday = now_pht + timedelta(days=days_ahead)
     after_sunday = target_sunday + timedelta(days=1)
     expiry_pht = after_sunday.replace(hour=6, minute=0, second=0, microsecond=0)
@@ -334,13 +391,8 @@ def rotate_rehearsal_auth(target_root: Path) -> Optional[Dict[str, Any]]:
     salt = secrets.token_hex(32)
     expires_str = expiry_pht.strftime("%A, %b %d, %Y %I:%M:%S %p PHT (UTC+8)")
 
-    functions_dir = target_root / "functions"
-    if not functions_dir.is_dir():
-        return None
-
-    config_js = functions_dir / "auth_config.js"
     content = (
-        f"// Generated automatically by TrackDeck export\n"
+        f"// Generated automatically by TrackDeck\n"
         f"export const authConfig = {{\n"
         f'  weeklyKey: "{weekly_key}",\n'
         f'  keyId: "{key_id}",\n'
@@ -354,12 +406,14 @@ def rotate_rehearsal_auth(target_root: Path) -> Optional[Dict[str, Any]]:
         "weekly_key": weekly_key,
         "valid_until_ts": expiry_ts,
         "expires_str": expires_str,
-        "target_sunday": target_sunday
+        "target_sunday": target_sunday,
+        "is_reused": False
     }
 
 
-def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str]) -> int:
-    """Execute the 'trackdeck export <job_id>...' command."""
+def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str], clean: bool = False) -> int:
+    """Execute 'trackdeck export' (incremental add) or 'trackdeck publish' (clean fresh cycle)."""
+    action_label = "Publish (Fresh Cycle)" if clean else "Export (Additive)"
     if target_dir_str:
         target_root = Path(target_dir_str).expanduser().resolve()
     else:
@@ -372,14 +426,24 @@ def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str]) -> in
 
     if not job_ids:
         print("[!] Error: No job IDs specified.")
-        print("    Usage: trackdeck export <job_id> [job_id ...]")
+        cmd_name = "publish" if clean else "export"
+        print(f"    Usage: trackdeck {cmd_name} <job_id> [job_id ...]")
         return 1
 
     print("=" * 78)
-    print(f"  TrackDeck Export: Rehearsal Player Static Assets")
+    print(f"  TrackDeck {action_label}: Rehearsal Player Static Assets")
     print(f"  Target Repository: {target_root}")
-    print(f"  Jobs to Export:    {len(job_ids)}")
+    print(f"  Jobs to Process:   {len(job_ids)}")
     print("=" * 78)
+
+    if clean:
+        cleaned_songs = clean_player_songs(target_root)
+        if cleaned_songs:
+            print(f"[*] Cleaned {len(cleaned_songs)} prior song(s) from {target_root.name} for fresh cycle:")
+            for s in cleaned_songs:
+                print(f"    - Removed prior song: {s}")
+        else:
+            print(f"[*] Songs directory is clean in {target_root.name}.")
 
     exported_entries = []
     for jid in job_ids:
@@ -393,20 +457,25 @@ def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str]) -> in
 
     # Update manifest.json in both static/songs and public/songs if present
     if (target_root / "static" / "songs").is_dir():
-        update_manifest_file(target_root / "static" / "songs", exported_entries)
+        update_manifest_file(target_root / "static" / "songs", exported_entries, clean=clean)
     if (target_root / "public" / "songs").is_dir():
-        update_manifest_file(target_root / "public" / "songs", exported_entries)
+        update_manifest_file(target_root / "public" / "songs", exported_entries, clean=clean)
     if not (target_root / "static").is_dir() and not (target_root / "public").is_dir():
-        update_manifest_file(target_root / "songs", exported_entries)
+        update_manifest_file(target_root / "songs", exported_entries, clean=clean)
 
-    # Roll weekly time-bounded passkey if target has functions/
-    auth_info = rotate_rehearsal_auth(target_root)
+    # Roll or preserve weekly time-bounded passkey if target has functions/
+    auth_info = rotate_rehearsal_auth(target_root, force=clean)
 
     print("\n" + "=" * 78)
-    print(f"[+] Export complete! {len(exported_entries)} song(s) prepared in {target_root.name}/.")
+    if clean:
+        print(f"[+] Publish complete! Fresh cycle with {len(exported_entries)} song(s) published in {target_root.name}/.")
+    else:
+        print(f"[+] Export complete! {len(exported_entries)} song(s) exported into {target_root.name}/.")
+
     if auth_info:
+        reused_tag = " (active weekly key preserved)" if auth_info.get("is_reused") else " (new cycle passkey generated)"
         print("-" * 78)
-        print("  Weekly Rehearsal Security (Philippine Standard Time, UTC+8):")
+        print(f"  Weekly Rehearsal Security (Philippine Standard Time, UTC+8){reused_tag}:")
         print(f"    Weekly Passcode:  {auth_info['weekly_key']}")
         print(f"    Valid Through:    {auth_info['expires_str']}")
         print(f"    1-Tap Team Link:  https://jiamakati-practice.pages.dev/#{auth_info['weekly_key']}")

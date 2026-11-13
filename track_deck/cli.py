@@ -385,9 +385,14 @@ def main():
     rescan_parser.add_argument("--port", type=int, default=10000, help="StemDeck backend port (default: 10000)")
 
     # Command: export
-    export_parser = subparsers.add_parser("export", help="Export StemDeck jobs into static rehearsal player repository (Cloudflare Pages)")
+    export_parser = subparsers.add_parser("export", help="Add StemDeck jobs into static rehearsal player repository (incremental)")
     export_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs (or 'latest') to export")
     export_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
+
+    # Command: publish
+    publish_parser = subparsers.add_parser("publish", help="Publish a fresh weekly set into static rehearsal player (cleans prior songs)")
+    publish_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs (or 'latest') to publish")
+    publish_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -407,7 +412,7 @@ def main():
     if args.command == "rescan":
         return rescan_action(getattr(args, "port", 10000))
 
-    if args.command == "export":
+    if args.command in ("export", "publish"):
         raw_jobs = args.jobs
         target_dir = getattr(args, "target_dir", None)
         if not target_dir and len(raw_jobs) > 1 and Path(raw_jobs[0]).expanduser().is_dir():
@@ -415,7 +420,8 @@ def main():
             job_ids = raw_jobs[1:]
         else:
             job_ids = raw_jobs
-        return export_jobs_command(target_dir, job_ids)
+        clean = (args.command == "publish")
+        return export_jobs_command(target_dir, job_ids, clean=clean)
 
     if args.command == "completion":
         from track_deck.completions import generate_fish_completions, install_fish_completions
