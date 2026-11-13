@@ -54,6 +54,43 @@ function __fish_trackdeck_profiles
     end
 end
 
+function __fish_trackdeck_jobs
+    set -l jobs_dir "$HOME/Documents/StemDeck/jobs"
+    if not test -d "$jobs_dir"
+        return
+    end
+
+    set -l cmd (commandline -opc)
+
+    if not contains "latest" $cmd
+        printf "%s\\t%s\\n" "latest" "Export most recent job"
+    end
+
+    for job_path in $jobs_dir/*
+        if test -d "$job_path"
+            set -l job_name (basename "$job_path")
+            if test "$job_name" != "failed" -a "$job_name" != "exports"
+                if not contains "$job_name" $cmd
+                    set -l meta_file "$job_path/metadata.json"
+                    set -l title ""
+                    if test -f "$meta_file"
+                        if command -v jq >/dev/null 2>&1
+                            set title (jq -r '.title // empty' "$meta_file" 2>/dev/null)
+                        else
+                            set title (sed -n 's/.*"title": *"\\([^"]*\\)".*/\\1/p' "$meta_file" 2>/dev/null | head -n 1)
+                        end
+                    end
+                    if test -n "$title"
+                        printf "%s\\t%s\\n" "$job_name" "$title"
+                    else
+                        printf "%s\\tStemDeck Job\\n" "$job_name"
+                    end
+                end
+            end
+        end
+    end
+end
+
 for app in trackdeck
     # Disable default file completion unless explicitly triggered
     complete -c $app -f
@@ -98,7 +135,8 @@ for app in trackdeck
     complete -c $app -n '__fish_trackdeck_using_subcommand profiles' -l delete -x -a '(__fish_trackdeck_profiles)' -d 'Delete a profile'
 
     # Subcommand: export
-    complete -c $app -n '__fish_trackdeck_using_subcommand export' -r -F -d 'Target player repository or job ID'
+    complete -c $app -n '__fish_trackdeck_using_subcommand export' -a '(__fish_trackdeck_jobs)'
+    complete -c $app -n '__fish_trackdeck_using_subcommand export' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
 
     # Subcommand: completion
     complete -c $app -n '__fish_trackdeck_using_subcommand completion' -l install -d 'Install completions into ~/.config/fish/completions/'

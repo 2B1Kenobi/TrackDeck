@@ -19,3 +19,10 @@
 
 ## 4. Maintenance of Shell Completions
 * Any modification to `track_deck/cli.py` (flags, subcommands, arguments) requires updating `track_deck/completions.py` in lockstep.
+
+## 5. Rehearsal Player Export & CLI Standards
+* **Static Rehearsal Export:** `trackdeck export <job> [Nth-job ...]` exports StemDeck jobs into a static rehearsal web player (e.g. `4StemPlayer` on Cloudflare Pages).
+* **Target Directory Resolution:**
+  - Default target repository is `~/Projects/4StemPlayer` (or configurable via `TRACKDECK_PLAYER_DIR` or `--dir / -d`).
+  - If the first positional argument is an existing directory, it is gracefully accepted as `target_dir` with subsequent arguments treated as `jobs`.
+* **Dynamic Job Completion:** Fish completions for `export` dynamically query `~/Documents/StemDeck/jobs`, extracting job IDs with their song titles, offering `latest`, and filtering out already-selected jobs across all Nth-job positions.

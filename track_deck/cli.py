@@ -386,8 +386,8 @@ def main():
 
     # Command: export
     export_parser = subparsers.add_parser("export", help="Export StemDeck jobs into static rehearsal player repository (Cloudflare Pages)")
-    export_parser.add_argument("target_dir", type=str, help="Root directory of the rehearsal player git repository")
-    export_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs to export")
+    export_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs (or 'latest') to export")
+    export_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -408,7 +408,14 @@ def main():
         return rescan_action(getattr(args, "port", 10000))
 
     if args.command == "export":
-        return export_jobs_command(args.target_dir, args.jobs)
+        raw_jobs = args.jobs
+        target_dir = getattr(args, "target_dir", None)
+        if not target_dir and len(raw_jobs) > 1 and Path(raw_jobs[0]).expanduser().is_dir():
+            target_dir = raw_jobs[0]
+            job_ids = raw_jobs[1:]
+        else:
+            job_ids = raw_jobs
+        return export_jobs_command(target_dir, job_ids)
 
     if args.command == "completion":
         from track_deck.completions import generate_fish_completions, install_fish_completions

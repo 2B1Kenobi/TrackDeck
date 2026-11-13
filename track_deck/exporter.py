@@ -57,6 +57,24 @@ def compute_audio_peaks(audio_path: Path, sample_rate: int = 8000, samples_per_p
         return []
 
 
+def get_default_player_dir() -> Path:
+    """Resolve default static rehearsal player repository directory."""
+    import os
+    env_dir = os.environ.get("TRACKDECK_PLAYER_DIR")
+    if env_dir and Path(env_dir).is_dir():
+        return Path(env_dir).expanduser().resolve()
+
+    default_proj = Path.home() / "Projects" / "4StemPlayer"
+    if default_proj.is_dir():
+        return default_proj
+
+    cwd = Path.cwd()
+    if (cwd / "functions").is_dir() or (cwd / "static" / "songs").is_dir() or (cwd / "public" / "songs").is_dir():
+        return cwd
+
+    return default_proj
+
+
 def export_job_to_target(
     job_id: str,
     target_root: Path,
@@ -65,7 +83,16 @@ def export_job_to_target(
 ) -> Optional[Dict[str, Any]]:
     """Export a single StemDeck job into the target static player repository."""
     jobs_dir = jobs_dir or get_default_stemdeck_jobs_dir()
-    job_dir = jobs_dir / job_id
+    if job_id == "latest":
+        job_folders = [p for p in jobs_dir.iterdir() if p.is_dir() and p.name not in ("failed", "exports")]
+        if not job_folders:
+            print("[!] Error: No jobs found in StemDeck jobs directory.")
+            return None
+        job_dir = max(job_folders, key=lambda p: p.stat().st_mtime)
+        job_id = job_dir.name
+    else:
+        job_dir = jobs_dir / job_id
+
     if not job_dir.is_dir():
         print(f"[!] Error: StemDeck job directory not found: {job_dir}")
         return None
@@ -331,17 +358,21 @@ def rotate_rehearsal_auth(target_root: Path) -> Optional[Dict[str, Any]]:
     }
 
 
-def export_jobs_command(target_dir_str: str, job_ids: List[str]) -> int:
-    """Execute the 'trackdeck export <target_dir> <job_id>...' command."""
-    target_root = Path(target_dir_str).expanduser().resolve()
+def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str]) -> int:
+    """Execute the 'trackdeck export <job_id>...' command."""
+    if target_dir_str:
+        target_root = Path(target_dir_str).expanduser().resolve()
+    else:
+        target_root = get_default_player_dir()
+
     if not target_root.is_dir():
-        print(f"[!] Error: Target directory does not exist: {target_dir_str}")
-        print("    Please specify the root of the rehearsal player git repository.")
+        print(f"[!] Error: Target directory does not exist: {target_root}")
+        print("    Please specify the root of the rehearsal player git repository via --dir.")
         return 1
 
     if not job_ids:
         print("[!] Error: No job IDs specified.")
-        print("    Usage: trackdeck export <target-directory> <job_id> [job_id ...]")
+        print("    Usage: trackdeck export <job_id> [job_id ...]")
         return 1
 
     print("=" * 78)

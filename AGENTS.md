@@ -33,6 +33,7 @@ TrackDeck operates as a multitrack ingestion middleware for StemDeck. When synth
 - Use `trackdeck single <path>` for single-song multitracks or plain WAV folders.
 - Use `trackdeck markers <session_path>` to list detected song markers.
 - Use `trackdeck profiles` to manage saved channel routing profiles.
+- Use `trackdeck export <job> [Nth-job ...]` to export StemDeck jobs into the static rehearsal player repository (defaults to `~/Projects/4StemPlayer`).
 
 ## 5. CLI Maintenance & Shell Completions Invariant
 - Whenever modifying `track_deck/cli.py` (adding/renaming flags, arguments, or subcommands), the Fish shell completion engine in `track_deck/completions.py` MUST be updated in lockstep.

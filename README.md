@@ -74,6 +74,28 @@ trackdeck single /path/to/multitrack_folder/ --title "May Galak"
 
 ---
 
+## Rehearsal Player Export
+
+TrackDeck exports StemDeck jobs into a static rehearsal stem player repository (such as `4StemPlayer` hosted on Cloudflare Pages) with dynamic N-stem faders, waveform peaks, synchronized lyrics, and weekly rotating security passcodes:
+
+```bash
+# Export single job (defaults to ~/Projects/4StemPlayer)
+trackdeck export 88e1d264f70d
+
+# Export multiple jobs in one command
+trackdeck export 88e1d264f70d 00324333dd1f
+
+# Export the latest StemDeck job
+trackdeck export latest
+
+# Custom target repository directory
+trackdeck export --dir ~/path/to/player 88e1d264f70d
+```
+
+Fish shell autocompletion dynamically suggests all available StemDeck jobs along with their song titles for both `<job>` and `<Nth-job>` arguments.
+
+---
+
 ## Channel Routing & Profiles
 
 TrackDeck automatically classifies track names into StemDeck's 6 canonical stem targets using universal audio engineering standards (`VOX`/`MIC` -> `vocals`, `KICK`/`SNARE`/`OH` -> `drums`, `GTR` -> `guitar`, etc.).
