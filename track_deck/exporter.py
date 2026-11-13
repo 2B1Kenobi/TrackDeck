@@ -9,6 +9,7 @@ import re
 import secrets
 import string
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,100 @@ def sanitize_folder_name(name: str) -> str:
     """Sanitize song title into safe folder and filename prefix."""
     s = re.sub(r'[^a-zA-Z0-9_\-]', '', name.strip().replace(" ", ""))
     return s or "Song"
+
+
+def suggest_sanitized_title(title: str, artist: str = "", identity_title: str = "") -> str:
+    """Sanitize song title by stripping extraneous YouTube/video noise, descriptors, and metadata."""
+    if not title:
+        return ""
+
+    s = title.strip()
+    # Strip surrounding quotes (straight, curly, single, double, backtick)
+    s = s.strip("\"'“”‘’`").strip()
+
+    # Strip pipe metadata (e.g. | Tommy Walker, | Meredith Andrews | Worship Circle...)
+    if "|" in s:
+        s = s.split("|")[0].strip()
+
+    # Strip bracketed / parenthetical descriptors like (Lyric Video), [with lyrics], (Official Video), (Live), etc.
+    bracket_noise = re.compile(
+        r"[\(\[\{]\s*(?:official\s+)?(?:lyric\s+video|lyrics?\s+video|with\s+lyrics?|lyric|lyrics?|official\s+audio|audio|official\s+video|video|live\s+video|live(?:\s+at|\s+from\s+[^()\]\}]+)?|acoustic(?:\s+version)?|visualizer|hd|4k|hq)\s*[\)\]\}]",
+        re.IGNORECASE
+    )
+    s = bracket_noise.sub("", s).strip()
+
+    # If there is a hyphen separator "Artist - Title", or "Title - Artist"
+    if " - " in s:
+        parts = [p.strip() for p in s.split(" - ") if p.strip()]
+        if len(parts) == 2:
+            p0, p1 = parts[0], parts[1]
+            if artist:
+                art_lower = artist.lower()
+                if art_lower in p0.lower() or p0.lower() in art_lower:
+                    s = p1
+                elif art_lower in p1.lower() or p1.lower() in art_lower:
+                    s = p0
+            else:
+                known_band_keywords = ["worship", "records", "music", "ministries", "band", "choir"]
+                if any(w in p1.lower() for w in known_band_keywords):
+                    s = p0
+                elif any(w in p0.lower() for w in known_band_keywords):
+                    s = p1
+                else:
+                    s = p1
+
+    # Cleanup leftover quotes, trailing/leading hyphens, whitespace
+    s = s.strip("\"'“”‘’`- ").strip()
+    s = re.sub(r"\s+", " ", s)
+
+    if identity_title and (not s or len(s) > len(identity_title)):
+        if identity_title.lower() in title.lower():
+            s = identity_title
+
+    return s
+
+
+def resolve_sanitized_title(
+    raw_title: str,
+    artist: str = "",
+    identity_title: str = "",
+    max_len: int = 32,
+    interactive: bool = True
+) -> str:
+    """Prompt user if title is too long or has metadata noise, otherwise return sanitized title."""
+    suggested = suggest_sanitized_title(raw_title, artist=artist, identity_title=identity_title)
+    if not suggested:
+        suggested = raw_title
+
+    # Flag if longer than max_len OR if sanitization changed the title
+    needs_attention = (len(raw_title) > max_len) or (suggested != raw_title)
+
+    if not needs_attention:
+        return raw_title
+
+    # Check if we should prompt interactively
+    is_tty = sys.stdin.isatty() if hasattr(sys.stdin, "isatty") else False
+    if interactive and is_tty:
+        print("\n" + "-" * 60)
+        print("[!] Song title is long or contains extraneous metadata:")
+        print(f"    Original:  \"{raw_title}\"")
+        print(f"    Suggested: \"{suggested}\"")
+        try:
+            user_input = input("Enter title [press Enter to accept suggested]: ").strip()
+            if user_input:
+                resolved = user_input
+            else:
+                resolved = suggested
+        except (EOFError, KeyboardInterrupt):
+            print(f"\n[*] Defaulting to suggested: \"{suggested}\"")
+            resolved = suggested
+        print(f"[+] Using title: \"{resolved}\"")
+        print("-" * 60 + "\n")
+        return resolved
+    else:
+        # Non-interactive / headless fallback
+        print(f"[*] Auto-sanitizing title: \"{raw_title}\" -> \"{suggested}\"")
+        return suggested
 
 
 def format_nerv_minimal_lyrics(text: str) -> str:
@@ -94,10 +189,9 @@ def format_nerv_minimal_lyrics(text: str) -> str:
     return "\n\n".join(out_sections).strip()
 
 
-def resolve_job_lyrics(job_dir: Path, title: str) -> str:
+def resolve_job_lyrics(job_dir: Path, title: str, raw_title: Optional[str] = None) -> str:
     """Resolve job lyrics with nerv.md as top priority, formatted minimally."""
     exports_dir = Path.home() / "Documents" / "StemDeck" / "exports"
-    safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).strip()
 
     seen_cands = set()
     nerv_candidates = [
@@ -105,11 +199,15 @@ def resolve_job_lyrics(job_dir: Path, title: str) -> str:
         *job_dir.glob("*.nerv.md"),
     ]
     if exports_dir.is_dir():
-        nerv_candidates.extend([
-            exports_dir / f"{title}.nerv.md",
-            exports_dir / f"{safe_title}.nerv.md",
-            *exports_dir.glob(f"*{safe_title}*.nerv.md"),
-        ])
+        for t in [title, raw_title]:
+            if not t:
+                continue
+            st = "".join(c for c in t if c.isalnum() or c in (" ", "-", "_")).strip()
+            nerv_candidates.extend([
+                exports_dir / f"{t}.nerv.md",
+                exports_dir / f"{st}.nerv.md",
+                *exports_dir.glob(f"*{st}*.nerv.md"),
+            ])
 
     # 1. Priority 1: *.nerv.md
     for cand in nerv_candidates:
@@ -218,7 +316,8 @@ def export_job_to_target(
     job_id: str,
     target_root: Path,
     jobs_dir: Optional[Path] = None,
-    bitrate: str = "256k"
+    bitrate: str = "256k",
+    non_interactive: bool = False
 ) -> Optional[Dict[str, Any]]:
     """Export a single StemDeck job into the target static player repository."""
     jobs_dir = jobs_dir or get_default_stemdeck_jobs_dir()
@@ -264,8 +363,27 @@ def export_job_to_target(
         except Exception:
             pass
 
-    title = metadata.get("title") or job_id
-    artist = metadata.get("artist") or "Worship Team"
+    raw_title = metadata.get("title") or job_id
+    artist_val = metadata.get("artist")
+    if isinstance(artist_val, dict):
+        artist = artist_val.get("name") or artist_val.get("englishName") or "Worship Team"
+    elif isinstance(artist_val, str) and artist_val.strip():
+        artist = artist_val.strip()
+    else:
+        artist = "Worship Team"
+
+    identity = metadata.get("identity") if isinstance(metadata.get("identity"), dict) else {}
+    identity_title = identity.get("title", "")
+
+    # Sanitize and prompt for title if too long or containing noise
+    title = resolve_sanitized_title(
+        raw_title=raw_title,
+        artist=artist,
+        identity_title=identity_title,
+        max_len=32,
+        interactive=not non_interactive
+    )
+
     key = metadata.get("key") or "C"
     bpm = metadata.get("bpm") or 120
     dur = float(metadata.get("duration_sec") or 0.0)
@@ -384,7 +502,7 @@ def export_job_to_target(
         (d / "song.json").write_text(json.dumps(song_json_data, indent=2) + "\n", encoding="utf-8")
 
     # Resolve lyrics (Priority: nerv.md -> lyrics.txt -> lyrics.json -> song.chordpro)
-    lyrics_content = resolve_job_lyrics(job_dir, title)
+    lyrics_content = resolve_job_lyrics(job_dir, title, raw_title=raw_title)
     if lyrics_content:
         for d in target_dirs:
             (d / "lyrics.md").write_text(lyrics_content.strip() + "\n", encoding="utf-8")
@@ -530,7 +648,12 @@ def rotate_rehearsal_auth(target_root: Path, force: bool = True) -> Optional[Dic
     }
 
 
-def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str], clean: bool = False) -> int:
+def export_jobs_command(
+    target_dir_str: Optional[str],
+    job_ids: List[str],
+    clean: bool = False,
+    non_interactive: bool = False
+) -> int:
     """Execute 'trackdeck export' (incremental add) or 'trackdeck publish' (clean fresh cycle)."""
     action_label = "Publish (Fresh Cycle)" if clean else "Export (Additive)"
     if target_dir_str:
@@ -566,7 +689,7 @@ def export_jobs_command(target_dir_str: Optional[str], job_ids: List[str], clean
 
     exported_entries = []
     for jid in job_ids:
-        entry = export_job_to_target(jid, target_root)
+        entry = export_job_to_target(jid, target_root, non_interactive=non_interactive)
         if entry:
             exported_entries.append(entry)
 

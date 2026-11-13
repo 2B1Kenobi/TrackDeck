@@ -144,10 +144,12 @@ for app in trackdeck
     # Subcommand: export
     complete -c $app -n '__fish_trackdeck_using_subcommand export' -a '(__fish_trackdeck_jobs)'
     complete -c $app -n '__fish_trackdeck_using_subcommand export' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
+    complete -c $app -n '__fish_trackdeck_using_subcommand export' -s y -l yes -d 'Non-interactive mode (automatically accept suggested titles)'
 
     # Subcommand: publish
     complete -c $app -n '__fish_trackdeck_using_subcommand publish' -a '(__fish_trackdeck_jobs)'
     complete -c $app -n '__fish_trackdeck_using_subcommand publish' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'
+    complete -c $app -n '__fish_trackdeck_using_subcommand publish' -s y -l yes -d 'Non-interactive mode (automatically accept suggested titles)'
 
     # Subcommand: sync
     complete -c $app -n '__fish_trackdeck_using_subcommand sync' -s d -l dir -r -F -d 'Target player repository directory (default: ~/Projects/4StemPlayer)'

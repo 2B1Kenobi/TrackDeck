@@ -33,3 +33,20 @@
 * **Lyrics Resolution & Minimal NERV Invariant:**
   - `lyrics.md` exported for 4StemPlayer resolves `*.nerv.md` (`job_dir/song.nerv.md`, `exports/<title>.nerv.md`) as **first priority**, followed by `lyrics.txt`, `lyrics.json`, and `song.chordpro`.
   - All published lyrics are normalized into minimal NERV format: YAML frontmatter stripped, inline chords removed, and non-unique repeating stanzas deduplicated so only unique sections are displayed.
+
+## 6. Title Sanitation & Trimming Invariant
+* **Sanitation Algorithm (`suggest_sanitized_title`):**
+  - All job titles exported to rehearsal players are inspected for video descriptors and metadata noise:
+    - Encapsulating quotes (`"..."`, `'...'`, `“...”`, `‘...’`, backticks) are stripped.
+    - Pipe delimiters and subsequent metadata (`| Tommy Walker`, `| Worship Circle`) are stripped.
+    - Bracketed/parenthetical video noise (`(Official Lyric Video)`, `[with lyrics]`, `(Live)`, `(Audio)`, `(Visualizer)`) is removed.
+    - Hyphen-separated artist prefixes/suffixes (`Artist - Title`) are cleanly split using canonical artist metadata or band heuristics.
+* **Interactive Trimming Prompt (`resolve_sanitized_title`):**
+  - If a title exceeds the length threshold (> 32 characters) or differs after sanitation, the CLI presents:
+    - Original title.
+    - Proposed sanitized title.
+    - Prompt: `Enter title [press Enter to accept suggested]: `
+  - Pressing Enter (empty input) accepts the suggested title. A custom entered string overrides the title.
+  - In non-interactive mode (`-y` / `--yes` or non-TTY), the sanitized suggestion is accepted automatically without stopping.
+* **Downstream Alignment:**
+  - The resolved title governs the exported `manifest.json`, `song.json`, clean folder name, and stem file prefixes.

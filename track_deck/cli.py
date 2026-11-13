@@ -388,11 +388,13 @@ def main():
     export_parser = subparsers.add_parser("export", help="Add StemDeck jobs into static rehearsal player repository (incremental)")
     export_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs (or 'latest') to export")
     export_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
+    export_parser.add_argument("-y", "--yes", action="store_true", help="Non-interactive mode (automatically accept suggested sanitized titles)")
 
     # Command: publish
     publish_parser = subparsers.add_parser("publish", help="Publish a fresh weekly set into static rehearsal player (cleans prior songs)")
     publish_parser.add_argument("jobs", nargs="+", type=str, help="One or more StemDeck job IDs (or 'latest') to publish")
     publish_parser.add_argument("-d", "--dir", dest="target_dir", type=str, default=None, help="Target player repository directory (default: ~/Projects/4StemPlayer)")
+    publish_parser.add_argument("-y", "--yes", action="store_true", help="Non-interactive mode (automatically accept suggested sanitized titles)")
 
     # Command: sync
     sync_parser = subparsers.add_parser("sync", help="Commit and push rehearsal player repository to GitHub")
@@ -426,7 +428,8 @@ def main():
         else:
             job_ids = raw_jobs
         clean = (args.command == "publish")
-        return export_jobs_command(target_dir, job_ids, clean=clean)
+        non_interactive = bool(getattr(args, "yes", False))
+        return export_jobs_command(target_dir, job_ids, clean=clean, non_interactive=non_interactive)
 
     if args.command == "sync":
         from track_deck.exporter import sync_rehearsal_repo
